@@ -73,16 +73,16 @@ namespace Control
         Arguments m_args;
 
         Task(const std::string& name, Tasks::Context& ctx):
-          DUNE::Control::PathController(name, ctx)
+          DUNE::Control::PathController(name, ctx)  //配置参数
         {
-          param("Corridor -- Width", m_args.corridor)
+          param("Corridor -- Width", m_args.corridor)  //通道宽度
           .minimumValue("1.0")
           .maximumValue("50.0")
           .defaultValue("5.0")
           .units(Units::Meter)
           .description("Width of corridor for attack entry angle");
 
-          param("Corridor -- Entry Angle", m_args.entry_angle)
+          param("Corridor -- Entry Angle", m_args.entry_angle)  //切入角
           .minimumValue("2")
           .maximumValue("45")
           .defaultValue("15")

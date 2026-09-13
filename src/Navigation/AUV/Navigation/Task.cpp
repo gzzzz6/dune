@@ -46,23 +46,23 @@ namespace Navigation
       //! Navigation states.
       enum StateIndexes
       {
-        //! Vehicle north (m).
+        //! Vehicle north (m).北向位置 (m)
         STATE_X = 0,
-        //! Vehicle east (m).
+        //! Vehicle east (m).东向位置 (m)
         STATE_Y = 1,
-        //! Heading Angle (rad).
+        //! Heading Angle (rad).船头朝哪，艏向（psi）以正北为 0，顺时针增大
         STATE_PSI = 2,
-        //! Heading Rate (rad/s)
+        //! Heading Rate (rad/s)转头多快
         STATE_R = 3,
-        //! Ground Velocity x (m/s).
+        //! Ground Velocity x (m/s).相对海底/大地，沿船头方向往前的速度
         STATE_U = 4,
-        //! Ground Velocity y (m/s).
+        //! Ground Velocity y (m/s).相对大地，垂直于船头方向的侧向速度
         STATE_V = 5,
-        //! Heading Rate Bias (rad/s).
+        //! Heading Rate Bias (rad/s).角速度零偏
         STATE_R_BIAS = 6,
-        //! Heading Angle Bias (rad).
+        //! Heading Angle Bias (rad).艏向零偏
         STATE_PSI_BIAS = 7,
-        //! Revolutions to speed factor.
+        //! Revolutions to speed factor.螺旋桨每转一圈，大约能推进多少米
         STATE_K = 8,
         //! Number of States.
         NUM_STATE = 9
@@ -98,7 +98,7 @@ namespace Navigation
         PN_PSI_BIAS = 5
       };
 
-      //! Measure Noise parameters.
+      //! Measure Noise parameters.测量噪声参数
       enum MeasureNoiseIndexes
       {
         MN_U = 0,

@@ -67,7 +67,7 @@ namespace Maneuver
         path.speed = maneuver->speed;
         path.speed_units = maneuver->speed_units;
 
-        m_task->dispatch(path);
+        m_task->dispatch(path);  //把消息发到总线
       }
 
       //! On PathControlState message

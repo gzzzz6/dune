@@ -691,7 +691,7 @@ prepare_for_pass (j_compress_ptr cinfo)
 #ifdef DUNE_LEGACY
     /*FALLTHROUGH*/
 #else
-    [[fallthrough]];
+    /* fallthrough */
 #endif
 #endif
   case output_pass:
