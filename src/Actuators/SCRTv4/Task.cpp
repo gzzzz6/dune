@@ -27,6 +27,12 @@
 // Author: Ricardo Martins                                                  *
 //***************************************************************************
 
+// =====================================================================
+// Actuators.SCRTv4：四路舵机控制器串口驱动任务
+// 职责：经 UART/LUCL 协议配置 SCRTv4、下发舵机角度、回读位置与电流。
+// 模块划分见各段注释。
+// =====================================================================
+
 // ISO C++ 98 headers.
 #include <cmath>
 
@@ -42,27 +48,36 @@ namespace Actuators
   {
     using DUNE_NAMESPACES;
 
+    // -----------------------------------------------------------------
+    // [模块] 硬件/协议常量
+    // -----------------------------------------------------------------
     //! Number of servos
     static const unsigned c_servo_count = 4;
     //! Serial Port baud rate.
     static const unsigned c_baud_rate = 115200;
 
+    // -----------------------------------------------------------------
+    // [模块] LUCL 命令码（与 SCRTv4 固件约定）
+    // -----------------------------------------------------------------
     enum Commands
     {
-      CMD_STATE                = 1,
-      CMD_PARAMS_CON           = 2,
-      CMD_PARAMS_FAC           = 3,
-      CMD_PARAMS_EFF           = 4,
-      CMD_PARAMS_CAL_FBK       = 5,
+      CMD_STATE                = 1,   // 周期状态（位置/电流）或设置输出频率
+      CMD_PARAMS_CON           = 2,   // 读恒定参数（分辨率等）
+      CMD_PARAMS_FAC           = 3,   // 工厂参数
+      CMD_PARAMS_EFF           = 4,   // 有效参数（行程限位等）
+      CMD_PARAMS_CAL_FBK       = 5,   // 反馈校准
       CMD_PARAMS_CAL_FBK_START = 6,
       CMD_PARAMS_CAL_FBK_END   = 7,
-      CMD_PARAMS_CAL_MID       = 8,
-      CMD_SERVO_SET            = 9,
-      CMD_SERVO_PWR            = 10,
-      CMD_SELF_TEST            = 11,
-      CMD_CHECK_FUSES          = 12
+      CMD_PARAMS_CAL_MID       = 8,   // 中位校准
+      CMD_SERVO_SET            = 9,   // 设置单路舵机目标
+      CMD_SERVO_PWR            = 10,  // 舵机上电/断电
+      CMD_SELF_TEST            = 11,  // 自检
+      CMD_CHECK_FUSES          = 12   // 检查保险丝
     };
 
+    // -----------------------------------------------------------------
+    // [模块] 周期状态输出频率（Hz）
+    // -----------------------------------------------------------------
     enum ContinuousOutputRates
     {
       CONT_OUT_RATE_0HZ        = 0,
@@ -72,12 +87,18 @@ namespace Actuators
       CONT_OUT_RATE_10HZ       = 10
     };
 
+    // -----------------------------------------------------------------
+    // [模块] 自检结果码
+    // -----------------------------------------------------------------
     enum SelfTestResult
     {
       SELF_TEST_OK             = 0xf0,
       SELF_TEST_ERROR          = 0xf1
     };
 
+    // -----------------------------------------------------------------
+    // [模块] 任务配置参数（.ini 可配）
+    // -----------------------------------------------------------------
     struct Arguments
     {
       //! Serial port device.
@@ -86,8 +107,13 @@ namespace Actuators
       std::vector<double> servo_dirs;
     };
 
+    // -----------------------------------------------------------------
+    // [模块] Task 主体
+    // 继承 Tasks::Task：资源申请/初始化、消息绑定、主循环在此实现。
+    // -----------------------------------------------------------------
     struct Task: public Tasks::Task
     {
+      // -------- 成员状态 --------
       //! Task arguments.
       Arguments m_args;
       //! Servo position messages.
@@ -113,6 +139,9 @@ namespace Actuators
       //! Watchdog.
       Counter<double> m_wdog;
 
+      // -------------------------------------------------------------
+      // [模块] 构造：注册参数、绑定 IMC 消息
+      // -------------------------------------------------------------
       Task(const std::string& name, Tasks::Context& ctx):
         Tasks::Task(name, ctx),
         m_uart(NULL),
@@ -130,9 +159,12 @@ namespace Actuators
         .description("Direction of the servos");
 
         // Register handler routines.
-        bind<IMC::SetServoPosition>(this);
+        bind<IMC::SetServoPosition>(this);  // 收总线指令：设置某路舵机
       }
 
+      // -------------------------------------------------------------
+      // [模块] 实体登记：每路舵机一个实体（便于分路监视电流）
+      // -------------------------------------------------------------
       void
       onEntityReservation(void)
       {
@@ -145,6 +177,9 @@ namespace Actuators
         }
       }
 
+      // -------------------------------------------------------------
+      // [模块] 资源释放：停监听线程、关串口
+      // -------------------------------------------------------------
       void
       onResourceRelease(void)
       {
@@ -158,6 +193,10 @@ namespace Actuators
         Memory::clear(m_uart);
       }
 
+      // -------------------------------------------------------------
+      // [模块] 资源申请：打开串口、启动命令监听线程
+      // 失败则 RestartNeeded（约 30s 后任务重启）
+      // -------------------------------------------------------------
       void
       onResourceAcquisition(void)
       {
@@ -173,6 +212,11 @@ namespace Actuators
         }
       }
 
+      // -------------------------------------------------------------
+      // [模块] 初始化：清统计 → 停连续输出+查保险丝
+      //        → 读恒定参数/有效参数（限位）→ 开 10Hz 状态输出
+      //        → 启动 5s 通信看门狗
+      // -------------------------------------------------------------
       void
       onResourceInitialization(void)
       {
@@ -204,6 +248,9 @@ namespace Actuators
         m_wdog.setTop(5.0);
       }
 
+      // -------------------------------------------------------------
+      // [模块] IMC 入口：SetServoPosition → 下发到硬件
+      // -------------------------------------------------------------
       void
       consume(const IMC::SetServoPosition* msg)
       {
@@ -213,6 +260,11 @@ namespace Actuators
         setServoPosition(msg->id, msg->value);
       }
 
+      // -------------------------------------------------------------
+      // [模块] 参数读取（LUCL 一问一答）
+      // -------------------------------------------------------------
+
+      // 读恒定参数：取 demand 分辨率 m_demand_res
       bool
       readConstantParameters(void)
       {
@@ -226,6 +278,7 @@ namespace Actuators
         return true;
       }
 
+      // 读有效参数：解析每路行程限位，并回零
       bool
       readEffectiveParameters(void)
       {
@@ -252,6 +305,7 @@ namespace Actuators
         return true;
       }
 
+      // 开启 10Hz 周期状态上报
       bool
       startContinuous(void)
       {
@@ -259,6 +313,7 @@ namespace Actuators
         return waitForReplyAndDiscard(CMD_STATE, 1.0);
       }
 
+      // 停连续输出，并检查保险丝
       bool
       stopContinuous(void)
       {
@@ -267,6 +322,10 @@ namespace Actuators
         return waitForReplyAndDiscard(CMD_CHECK_FUSES, 1.0);
       }
 
+      // -------------------------------------------------------------
+      // [模块] 串口应答等待
+      // -------------------------------------------------------------
+      // 等指定命令码；超时计数并上报统计
       LUCL::Command*
       waitForReply(Commands command, double timeout)
       {
@@ -292,6 +351,7 @@ namespace Actuators
         return NULL;
       }
 
+      // 等待应答后直接丢弃内容（只关心是否成功）
       bool
       waitForReplyAndDiscard(Commands command, double timeout)
       {
@@ -305,6 +365,10 @@ namespace Actuators
         return false;
       }
 
+      // -------------------------------------------------------------
+      // [模块] 角度 → 舵机 demand 量化
+      // 含方向反向、行程限幅、分辨率缩放
+      // -------------------------------------------------------------
       uint8_t
       convertAngleToDemand(unsigned servo, double angle)
       {
@@ -323,6 +387,7 @@ namespace Actuators
         return demand;
       }
 
+      // 下发 CMD_SERVO_SET：data = [舵机号, demand]
       void
       setServoPosition(uint8_t servo, double position)
       {
@@ -335,6 +400,10 @@ namespace Actuators
         LUCL::ProtocolParser::sendCommand(CMD_SERVO_SET, data, sizeof(data), m_uart);
       }
 
+      // -------------------------------------------------------------
+      // [模块] 解析周期状态并回发 IMC
+      // 每路 12 字节：位置 + 电流 → ServoPosition / Current
+      // -------------------------------------------------------------
       void
       handleState(LUCL::Command::CommandPayload& cmd)
       {
@@ -356,6 +425,10 @@ namespace Actuators
         m_wdog.reset();
       }
 
+      // -------------------------------------------------------------
+      // [模块] 监听线程命令分发
+      // 正常状态帧 / 通信错误 / 校验和错误
+      // -------------------------------------------------------------
       void
       handleCommand(LUCL::Command* cmd)
       {
@@ -381,6 +454,9 @@ namespace Actuators
         }
       }
 
+      // -------------------------------------------------------------
+      // [模块] 通信质量统计上报（DevDataText）
+      // -------------------------------------------------------------
       void
       dispatchStats(void)
       {
@@ -401,6 +477,10 @@ namespace Actuators
         dispatchStats();
       }
 
+      // -------------------------------------------------------------
+      // [模块] 主循环 onMain
+      // 处理串口下行命令；看门狗超时 → 报错并 RestartNeeded
+      // -------------------------------------------------------------
       void
       onMain(void)
       {

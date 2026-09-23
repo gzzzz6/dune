@@ -44,21 +44,22 @@ namespace DUNE
     //! Header format.
     struct Header
     {
-      //! Synchronization Number.
+      //! Synchronization Number.同步编号，标记「一帧消息从哪里开始」。
+      //数据在线缆/串口上是一长串字节，接收方要从中间切出「完整的一条消息」，IMC 解析第一步：找 sync，再读后面的内容
       uint16_t sync;
-      //! Message Identification Number.
+      //! Message Identification Number.消息类型编号。告诉你：这条消息“是什么”
       uint16_t mgid;
-      //! Message size.
+      //! Message size.业务区长度：头之后还有多少字节，知道读到哪为止
       uint16_t size;
-      //! Time stamp.
+      //! Time stamp.时间戳，这条消息产生的时间
       fp64_t timestamp;
-      //! Source Address.
+      //! Source Address.发送方地址，标识这条 IMC 消息是由哪个设备 / 模块发出
       uint16_t src;
-      //! Source Entity.
+      //! Source Entity.发送方实体
       uint8_t src_ent;
-      //! Destination Address.
+      //! Destination Address.接收方系统的地址
       uint16_t dst;
-      //! Destination Entity.
+      //! Destination Entity.	接收方系统里的哪个实体/模块
       uint8_t dst_ent;
     };
   }

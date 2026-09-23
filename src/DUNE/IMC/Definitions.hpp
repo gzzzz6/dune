@@ -8278,9 +8278,9 @@ namespace DUNE
     class ServoPosition: public Message
     {
     public:
-      //! Identifier.
+      //! Identifier.标识符
       uint8_t id;
-      //! Position.
+      //! Position.舵机转到的位置
       fp32_t value;
 
       static uint16_t
@@ -8301,7 +8301,7 @@ namespace DUNE
       clear(void);
 
       bool
-      fieldsEqual(const Message& msg__) const;
+      fieldsEqual(const Message& msg__) const; //比较两条消息的id与value是否都相同
 
       int
       validate(void) const;
@@ -8333,16 +8333,16 @@ namespace DUNE
         return 5;
       }
 
-      uint16_t
+      uint16_t //读出舵机编号
       getSubId(void) const;
 
-      void
+      void //	设置舵机编号
       setSubId(uint16_t subid);
 
-      fp64_t
+      fp64_t //以双精度读出value（舵机角度）
       getValueFP(void) const;
 
-      void
+      void //以双精度写入value
       setValueFP(fp64_t val);
 
       void
@@ -13110,7 +13110,7 @@ namespace DUNE
     //! Goto Maneuver.
     class Goto: public Maneuver
     {
-    public:
+    public://其后字段/函数对外可见，可直接读写
       //! Timeout.
       uint16_t timeout;
       //! Latitude WGS-84.
@@ -13119,7 +13119,7 @@ namespace DUNE
       fp64_t lon;
       //! Z Reference.
       fp32_t z;
-      //! Z Units.
+      //! Z Units.z轴单位
       uint8_t z_units;
       //! Speed.
       fp32_t speed;
@@ -13131,17 +13131,17 @@ namespace DUNE
       fp64_t pitch;
       //! Yaw.
       fp64_t yaw;
-      //! Custom settings for maneuver.
+      //! Custom settings for maneuver.机动自定义参数
       std::string custom;
-
+      //声明Goto 的消息类型编号（mgid）为 450
       static uint16_t
       getIdStatic(void)
       {
-        return 450;
+        return 450;//	Goto 的 mgid = 450
       }
-
+      //无参构造函数的声明：用来新建一条空的 Goto 消息；具体初始化代码在 Definitions.cpp
       Goto(void);
-
+      //完整复制当前消息，new 出一份新的 Goto 并返回指针；总线可能要向多个订阅者分发，不能大家都改同一条消息
       Goto*
       clone(void) const
       {
@@ -13150,47 +13150,48 @@ namespace DUNE
 
       void
       clear(void);
-
+      //声明清空该消息业务字段的接口；具体清哪些、默认值是什么，在 Definitions.cpp 里实现
       bool
-      fieldsEqual(const Message& msg__) const;
+      fieldsEqual(const Message& msg__) const;//比较当前消息与另一条 Message 的业务字段是否全部相同
 
       int
       validate(void) const;
 
-      uint8_t*
+      uint8_t* //将消息字段写入缓冲区
       serializeFields(uint8_t* bfr__) const;
 
-      uint16_t
+      uint16_t //从缓冲区还原字段
       deserializeFields(const uint8_t* bfr__, uint16_t size__);
 
-      uint16_t
+      uint16_t  //和 deserializeFields 类似，但按 相反字节序 解析
       reverseDeserializeFields(const uint8_t* bfr__, uint16_t size__);
 
-      uint16_t
+      uint16_t //	返回mgid = 450
       getId(void) const
       {
         return Goto::getIdStatic();
       }
 
-      const char*
+      const char* //返回字符串 "Goto"
       getName(void) const
       {
         return "Goto";
       }
 
-      unsigned
+      unsigned  //业务字段里 长度固定 的那部分（lat、lon、speed…，不含变长的 custom）一共 52 字节
       getFixedSerializationSize(void) const
       {
         return 52;
       }
 
-      unsigned
+      unsigned  //变长字段 的额外长度：这里主要是custom字符串有多长
       getVariableSerializationSize(void) const
       {
         return IMC::getSerializationSize(custom);
+        //custom = Goto 的附加自定义字符串，放标准字段之外的机动参数；内容格式由使用方约定，序列化时变长计算。
       }
 
-      void
+      void  //把业务字段导出成JSON文本的接口，方便调试和工具查看
       fieldsToJSON(std::ostream& os__, unsigned nindent__) const;
     };
 
@@ -19783,13 +19784,13 @@ namespace DUNE
     class PlanManeuver: public Message
     {
     public:
-      //! Maneuver ID.
+      //! Maneuver ID.节点名字
       std::string maneuver_id;
-      //! Maneuver Specification.
+      //! Maneuver Specification.（嵌套消息）
       InlineMessage<Maneuver> data;
-      //! Start Actions.
+      //! Start Actions. 开始这个机动时要顺带做的事
       MessageList<Message> start_actions;
-      //! End Actions.
+      //! End Actions. 这个机动结束时要顺带做的事
       MessageList<Message> end_actions;
 
       static uint16_t

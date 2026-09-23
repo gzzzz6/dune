@@ -114,7 +114,7 @@ namespace DUNE
 
       uint16_t id = msg->getId();
       Concurrency::ScopedRWLock l(m_lock);
-      TransportList& dlst(m_recipients[id]);
+      TransportList& dlst(m_recipients[id]);  //查谁订阅此消息
       for (TransportList::iterator itr = dlst.begin(); itr != dlst.end(); ++itr)
       {
         if (*itr != task)

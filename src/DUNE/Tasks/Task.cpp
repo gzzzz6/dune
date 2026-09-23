@@ -123,7 +123,7 @@ namespace DUNE
       m_recipient = new Recipient(this, ctx);
       m_entity = new Entities::StatefulEntity(this, m_ctx);
       m_entities.push_back(m_entity);
-
+      //每个 Task 都自动会处理这些消息，不用子类再写一遍
       bind<IMC::QueryEntityParameters>(this);
       bind<IMC::SetEntityParameters>(this);
       bind<IMC::PushEntityParameters>(this);
@@ -132,7 +132,7 @@ namespace DUNE
       bind<IMC::RestartSystem>(this);
       bind<IMC::QueryTypedEntityParameters>(this);
     }
-
+    //给任务里的“子设备/子模块”登记一个实体名额，并返回它的编号
     unsigned int
     Task::reserveEntity(const std::string& label)
     {
@@ -144,7 +144,7 @@ namespace DUNE
       m_entities.push_back(e);
       return e->getId();
     }
-
+    //在本任务的实体列表里，按标签找到对应实体；没有就返回空指针
     Entities::BasicEntity*
     Task::getLocalEntity(const std::string& label)
     {
@@ -154,7 +154,7 @@ namespace DUNE
       else
         return (*it);
     }
-
+    //主实体的注册，主实体是Task 对外的“身份证 + 开关状态”
     void
     Task::reserveEntities(void)
     {
@@ -166,20 +166,20 @@ namespace DUNE
       onEntityReservation();
     }
 
-    void
+    void//让任务按名字去系统里找到要用的实体
     Task::resolveEntities(void)
     {
       onEntityResolution();
     }
 
-    void
+    void//主动发送主实体当前状态
     Task::reportEntityState(void)
     {
       m_entity->reportState();
       onReportEntityState();
     }
 
-    void
+    void//被动发送主实体当前状态
     Task::consume(const IMC::QueryEntityState* msg)
     {
       (void)msg;
@@ -187,7 +187,7 @@ namespace DUNE
       onReportEntityState();
     }
 
-    void
+    void//申请资源（串口、摄像头、电机）（准备工作）
     Task::acquireResources(void)
     {
       std::map<std::string, Parameter*>::iterator aitr = m_params.find("Active");
@@ -240,7 +240,7 @@ namespace DUNE
       .description(DTR("True to activate task, false otherwise"));
     }
 
-    void
+    void//把最新参数应用到任务
     Task::updateParameters(bool act_deact)
     {
       if (paramChanged(m_debug_level_string))
@@ -270,7 +270,7 @@ namespace DUNE
       m_params.setChanged(false);
     }
 
-    void
+    void//申请激活实体状态机
     Task::requestActivation(void)
     {
       spew("request activation");
@@ -304,11 +304,11 @@ namespace DUNE
       }
     }
 
-    void
+    void//激活失败时的收尾
     Task::activationFailed(const std::string& reason)
     {
       spew("activation failed: %s", reason.c_str());
-      
+
       if (m_honours_active)
         applyEntityParameter(&m_args.active, false);
 
@@ -327,7 +327,7 @@ namespace DUNE
       }
     }
 
-    void
+    void//申请 去激活（暂停） 的入口
     Task::deactivate(void)
     {
       if (m_entity->getActivationState() != IMC::EntityActivationState::EAS_DEACT_IP)
@@ -366,7 +366,7 @@ namespace DUNE
       throw RestartNeeded(text, delay, false);
     }
 
-    void
+    void//任务线程壳：反复准备资源、进 onMain 干活；失败或收到重启就走异常路径，循环重来
     Task::run(void)
     {
 #if defined(DUNE_OS_LINUX)
@@ -441,27 +441,28 @@ namespace DUNE
         }
       }
     }
-
+//给传输请求自动分配 req_id，然后按普通消息发到总线（传输请求不是数据本身，而是“请通信模块把某条消息送到外部/指定目标”的带编号请求）
+//告诉通信模块，有数据要发到机外。机外发送也要先走机内 IMC：请求是发给本机通信任务的；真正出海/出网由该任务完成
     void
     Task::dispatch(IMC::TransmissionRequest* msg, unsigned int flags)
     {
       msg->req_id = TransmissionIdGenerator::createId();
       dispatch(static_cast<IMC::Message*>(msg), flags);
     }
-
+//机内通用，所有消息的公共出口
     void
     Task::dispatch(IMC::Message* msg, unsigned int flags)
     {
       if (!IMC::AddressResolver::isValid(msg->getSource()))
-        msg->setSource(getSystemId());
+        msg->setSource(getSystemId());// src
 
       if ((flags & DF_KEEP_TIME) == 0)
-        msg->setTimeStamp();
+        msg->setTimeStamp();// timestamp
 
       if ((flags & DF_KEEP_SRC_EID) == 0)
       {
         if (msg->getSourceEntity() == DUNE_IMC_CONST_UNK_EID)
-          msg->setSourceEntity(getEntityId());
+          msg->setSourceEntity(getEntityId());// src_ent
       }
 
       if ((flags & DF_LOOP_BACK) ||
@@ -470,7 +471,7 @@ namespace DUNE
       else
         m_ctx.mbus.dispatch(msg, this);
     }
-
+//回答「查本实体参数」请求，把参数和当前值打包回给对方
     void
     Task::onQueryEntityParameters(const IMC::QueryEntityParameters* msg)
     {
@@ -511,7 +512,7 @@ namespace DUNE
       if (!params.params.empty())
         dispatchReply(*msg, params);
     }
-
+//收到「查参数」消息时的外壳函数
     void
     Task::consume(const IMC::QueryEntityParameters* msg)
     {
@@ -524,7 +525,7 @@ namespace DUNE
         war("failed to process QueryEntityParameters message: %s", e.what());
       }
     }
-
+//处理「运行时改参数」：收到 SetEntityParameters 后，改本实体的参数，并回复改了哪些
     void
     Task::onSetEntityParameters(const IMC::SetEntityParameters* msg)
     {
@@ -558,7 +559,7 @@ namespace DUNE
 
       updateParameters();
     }
-
+//参数设置的安全入口
     void
     Task::consume(const IMC::SetEntityParameters* msg)
     {
@@ -571,7 +572,7 @@ namespace DUNE
         war("failed to process SetEntityParameters message: %s", e.what());
       }
     }
-
+//「压栈备份当前参数」：先把本实体里 全局作用域 参数的现值存起来，方便以后恢复
     void
     Task::onPushEntityParameters(const IMC::PushEntityParameters* msg)
     {
@@ -601,7 +602,7 @@ namespace DUNE
         war("failed to process PushEntityParameters message: %s", e.what());
       }
     }
-
+//从栈顶弹出，恢复当时存的值
     void
     Task::onPopEntityParameters(const IMC::PopEntityParameters* msg)
     {
@@ -647,7 +648,7 @@ namespace DUNE
 
       onRequestRestart(msg);
     }
-
+//任务自己改自己的一个参数：不直接改内存，而是 发一条 SetEntityParameters 给自己，走和外部改参同一条路。
     void
     Task::setEntityParameter(const IMC::EntityParameter& p, const bool save)
     {
@@ -675,7 +676,7 @@ namespace DUNE
       if (save)
         saveEntityParameters();
     }
-
+// 请求「把本实体当前参数保存下来」
     void
     Task::saveEntityParameters(void)
     {
@@ -683,7 +684,7 @@ namespace DUNE
       sp.name = getEntityLabel();
       dispatch(sp, DF_LOOP_BACK);
     }
-
+//回答「带类型的参数查询」：不只回名字和值，还回 类型、单位、范围、可选列表、是否可编辑 等完整元数据，方便地面站生成参数界面
     void
     Task::onQueryTypedEntityParameters(const IMC::QueryTypedEntityParameters* msg)
     {
@@ -718,7 +719,7 @@ namespace DUNE
         }
         catch (const std::out_of_range& e)
         {
-          throw std::runtime_error("invalid parameter type: " + p->getType()); 
+          throw std::runtime_error("invalid parameter type: " + p->getType());
         }
         teparam.default_value = p->value().empty() ? p->defaultValue() : p->value();
         teparam.units = Units::getAbbrev(p->units());
@@ -732,7 +733,7 @@ namespace DUNE
                           std::numeric_limits<float>::max() :
                           std::stof(p->maximumValue());
 
-        teparam.list_min_size = p->minimumSize() == UINT_MAX ? 
+        teparam.list_min_size = p->minimumSize() == UINT_MAX ?
                               0 : p->minimumSize();
         teparam.list_max_size = p->maximumSize();
 
@@ -740,7 +741,7 @@ namespace DUNE
         teparam.visibility = p->getVisibility();
         if (!p->editable())
           teparam.visibility += 2;
-        
+
         teparam.scope = p->getScope();
 
         auto values_if = p->valuesIf();
@@ -791,7 +792,7 @@ namespace DUNE
 
       os << "</section>\n";
     }
-
+//用 printf 风格打 INFO 日志
     void
     Task::inf(const char* format, ...)
     {
@@ -863,7 +864,7 @@ namespace DUNE
       log(IMC::LogBookEntry::LBET_DEBUG, format, ap);
       va_end(ap);
     }
-
+//把格式化日志变成 LogBookEntry 发到总线，并按级别在本机打印
     void
     Task::log(IMC::LogBookEntry::TypeEnum type, const char* format, std::va_list arg_list)
     {
@@ -920,7 +921,7 @@ namespace DUNE
           break;
       }
     }
-
+//从配置里读「参数的附加属性」，在读参数值之前/之时，把 scope、visibility、editable（作用域、谁能改、可见性）设到对应 Parameter 对象上
     void
     Task::setParameterAttributes(const std::string& name)
     {

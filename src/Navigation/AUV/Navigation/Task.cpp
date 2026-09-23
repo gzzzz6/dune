@@ -108,7 +108,7 @@ namespace Navigation
         MN_LBL = 4
       };
 
-      //! State Covariance parameters.
+      //! State Covariance parameters.状态协方差参数
       enum StateCovarianceIndexes
       {
         SC_POSITION = 0,
@@ -118,7 +118,7 @@ namespace Navigation
         SC_RPM = 4
       };
 
-      //! GPS accuracy indexes.
+      //! GPS accuracy indexes.GPS 精度指标
       enum GpsAccuracyIndexes
       {
         GPS_BAD_IX = 0,
@@ -127,7 +127,7 @@ namespace Navigation
         GPS_PURE_IX = 3
       };
 
-      //! GPS Horizontal Accuracy (HACC) threshold values.
+      //! GPS Horizontal Accuracy (HACC) threshold values.GPS 水平精度（HACC）阈值
       enum GpsAccuracyValues
       {
         GPS_BAD = 10,
@@ -135,7 +135,7 @@ namespace Navigation
         GPS_GOOD = 4
       };
 
-      //! %Task arguments.
+      //! %Task arguments.任务参数
       struct Arguments
       {
         //! Position process noise when tactical grade IMU is enabled.
@@ -168,24 +168,24 @@ namespace Navigation
         bool speed_relation_Limit;
         //!  Value RPM to m/s limit on estimation
         double speed_relation_limit_value;
-        //!  Distance of Depth sensor to the veicle pitch rotation axis 
+        //!  Distance of Depth sensor to the veicle pitch rotation axis
         float distance_depth_sensor;
 
       };
 
       struct Task: public DUNE::Navigation::BasicNavigation
       {
-        //! Periodic GPS fix reading check.
+        //! Periodic GPS fix reading check.周期性GPS定位数据读取检查
         bool m_gps_reading;
-        //! USBL fix reading check.
+        //! USBL fix reading check.USBL定位数据读取检查
         bool m_usbl_reading;
-        //! Moving average for vehicle forward speed.
+        //! Moving average for vehicle forward speed.载体前向航速的移动平均计算器
         MovingAverage<double>* m_avg_speed;
-        //! Task arguments.
+        //! Task arguments.任务参数
         Arguments m_args;
-        //! Heading alignment buffer
+        //! Heading alignment buffer航向对准缓存计数
         int m_heading_buffer;
-        //! Pointer to speed model for speed conversions
+        //! Pointer to speed model for speed conversions用于航速换算的速度模型指针
         const Plans::SpeedModel* m_speed_model;
 
         Task(const std::string& name, Tasks::Context& ctx):
@@ -195,104 +195,122 @@ namespace Navigation
           m_speed_model(nullptr)
         {
           // Declare configuration parameters.
+          // 有 IMU 时的位置过程噪声：位置模型误差（越小越信推算）
           param("Position Noise Covariance with IMU", m_args.pos_noise)
           .defaultValue("0.0")
           .minimumValue("0.0")
           .description("Position process noise covariance value when IMU is available");
-
+          // 有 IMU 时的 LBL 量测噪声：水声基线定位可信度（越大越少信 LBL）
           param("LBL Noise Covariance with IMU", m_args.lbl_noise)
           .defaultValue("0.1")
           .minimumValue("0.0")
           .description("LBL measurement noise covariance value when IMU is available");
 
+          // EKF 过程噪声 Q（6 项）：位置/艏向/角速度/速度/零偏等模型不确定度
           param("Process Noise Covariance", m_process_noise)
           .defaultValue("")
           .size(6)
           .description("Kalman Filter process noise covariance values");
 
+          // GPS 量测噪声，分 4 档（按 HACC 质量切换，越好噪声越小）
           param("GPS Noise Covariance", m_args.gps_noise)
           .defaultValue("")
           .size(4)
           .description("Kalman Filter GPS noise covariance values");
 
+          // USBL 量测噪声：水声定位可信度（通常大于好 GPS）
           param("USBL Noise Covariance", m_args.usbl_noise)
           .defaultValue("100.0")
           .minimumValue("0.0")
           .description("Kalman Filter USBL noise covariance value");
 
+          // EKF 量测噪声 R（5 项）：U/V/艏向/角速度/LBL 等传感器噪声
           param("Measure Noise Covariance", m_measure_noise)
           .defaultValue("")
           .size(5)
           .description("Kalman Filter measurement noise covariance values");
 
+          // 状态协方差 P 初值（5 项）：开局对位置/角度/速度/零偏/K 的不确定度
           param("State Covariance Initial State", m_state_cov)
           .defaultValue("")
           .size(5)
           .description("Kalman Filter State Covariance initial values");
 
+          // 前向速度滑动平均点数：平滑 EstimatedState.u，减少抖动
           param("Speed Moving Average Samples", m_args.navg_speed)
           .defaultValue("10")
           .minimumValue("5")
           .maximumValue("20")
           .description("Number of moving average samples to smooth forward speed");
 
+          // 转速→速度系数 K 初值：u≈RPM×K（无 DVL/GPS 时估船速）
           param("Revolutions to speed factor", m_args.rpm_ini)
           .defaultValue("1.2e-3")
           .minimumValue("0.8e-3")
           .maximumValue("2.0e-3")
           .description("Kalman Filter initial revolutions to speed factor value");
 
+          // K 允许变化幅度：限制在 rpm_ini±rpm_max，防止滤波跑飞
           param("Revolutions to speed variation", m_args.rpm_max)
           .defaultValue("6e-4")
           .minimumValue("4e-4")
           .maximumValue("8e-4")
           .description("Kalman Filter revolutions to speed maximum allowed variation");
 
+          // 位置不确定度超限时是否中止/报警
           param("Abort if Uncertainty Exceeded", m_args.abort)
           .defaultValue("true")
           .description("Abort if position uncertainty is exceeded");
 
+          // 航向零偏对齐阈值：PSI_BIAS 协方差小于该值视为零偏已收敛
           param("Heading Bias Alignment Index", m_args.alignment_index)
           .defaultValue("1e-5")
           .minimumValue("1e-6")
           .maximumValue("1e-4")
           .description("Heading bias uncertainty alignment threshold");
 
+          // 对齐允许的航向差：滤波艏向与 AHRS/IMU 艏向之差上限（度）
           param("Heading alignment sensor diff", m_args.alignment_diff)
           .defaultValue("15")
           .minimumValue("1")
           .maximumValue("180")
           .description("Heading alignment sensor diff threshold");
 
+          // 失对齐连续计数上限：超过则可自动关 IMU 等
           param("Heading buffer value", m_args.heading_buffer_value)
           .defaultValue("200")
           .minimumValue("1")
           .description("Heading buffer value - how many repetitions to aligned");
 
+          // IMU 实体标签（IMC 实体名）：用于解析实体 ID、判断 IMU 是否激活
           param("Entity Label - IMU", m_args.elabel_imu)
           .description("Entity label of the IMU");
 
+          // 深度传感器到俯仰转轴的水平距离：用俯仰角修正深度读数
           param("Depth sensor localization in x axis", m_args.distance_depth_sensor)
           .defaultValue("0.0")
           .minimumValue("0.0")
           .maximumValue("2.0")
           .description("Depth sensor localization in x axis in meters- used for depth correction due to pitch");
 
+          // 是否用转速×K 估前向速度（无测速手段时）
           param("Rpm to speed estimation", m_args.rpm_estimation)
           .defaultValue("true")
           .description("");
 
+          // 是否限制 RPM 估速：与速度模型偏差过大时丢弃 RPM 估计
           param("Activate speed to rpm estimation limit", m_args.speed_relation_Limit)
           .defaultValue("false")
           .description("");
 
+          // RPM 估速相对速度模型的最大允许偏差百分比
           param("speed to rpm estimation percentage limit", m_args.speed_relation_limit_value)
           .defaultValue("15")
           .minimumValue("1")
           .maximumValue("100")
           .description("speed to rpm maximum diference between estimation and speed model");
 
-          // Extended Kalman Filter initialization.
+          // Extended Kalman Filter initialization.扩展卡尔曼滤波器初始化
           m_kal.reset(NUM_STATE, NUM_OUT);
           resetKalman();
 
@@ -337,7 +355,7 @@ namespace Navigation
               m_kal.setMeasurementNoise(NUM_OUT + i, m_args.lbl_noise);
           }
         }
-
+        //资源初始化回调函数
         void
         onResourceInitialization(void) override
         {
@@ -345,7 +363,7 @@ namespace Navigation
           m_avg_speed = new MovingAverage<double>(m_args.navg_speed);
           startSpeedModel(&m_ctx.config);
         }
-
+        //资源释放回调函数
         void
         onResourceRelease(void) override
         {
@@ -353,7 +371,7 @@ namespace Navigation
           Memory::clear(m_avg_speed);
           Memory::clear(m_speed_model);
         }
-
+        //实体解析回调函数
         void
         onEntityResolution(void) override
         {
@@ -367,7 +385,7 @@ namespace Navigation
             m_imu_eid = std::numeric_limits<unsigned>::max();
           }
         }
-
+        //上报实体状态回调函数
         void
         onReportEntityState(void)
         {
@@ -381,7 +399,7 @@ namespace Navigation
 
           dispatch(as);
         }
-
+        //它在 IMU 激活/关闭时，切换航位推算模式，并改写航向零偏、位置/零偏过程噪声和 LBL 量测噪声等 EKF 配置
         void
         consume(const IMC::EntityActivationState* msg)
         {
@@ -400,7 +418,7 @@ namespace Navigation
 
             // Dead reckoning mode.
             m_dead_reckoning = true;
-            debug("start navigation alignment");
+            debug("start navigation alignment");//启动导航对准
 
             // Reinitialize state covariance matrix value.
             m_kal.resetCovariance(STATE_PSI_BIAS);
@@ -439,7 +457,7 @@ namespace Navigation
               m_kal.setMeasurementNoise(NUM_OUT + i, m_measure_noise[MN_LBL]);
           }
         }
-
+        //EKF 启动时的初始化：设定状态初值和协方差 P 的对角初值
         bool
         setup(void)
         {
@@ -483,7 +501,7 @@ namespace Navigation
           if (m_kal.resize(NUM_OUT + m_ranging.getSize()))
             Task::onUpdateParameters();
         }
-
+        // 按 GPS 精度实时切换 EKF 对 GPS 的信任程度
         void
         updateKalmanGpsParameters(double hacc)
         {
@@ -508,7 +526,7 @@ namespace Navigation
             m_kal.setMeasurementNoise(OUT_GPS_Y, m_args.gps_noise[GPS_PURE_IX]);
           }
         }
-
+        //把 GPS 或者 USBL 的定位结果包装成**观测向量 z**，送入 EKF 做**观测更新**；
         void
         runKalmanGPS(double x, double y)
         {
@@ -542,13 +560,13 @@ namespace Navigation
           *u = OUT_U;
           *v = OUT_V;
         }
-
+        //告诉框架：标准量测输出一共有几路
         unsigned
         getNumberOutputs(void)
         {
           return NUM_OUT;
         }
-
+        //AUV 导航每拍的 EKF 主循环
         void
         task(void)
         {
