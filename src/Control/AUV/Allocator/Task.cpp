@@ -391,7 +391,7 @@ namespace Control
           Memory::clear(m_last_rpm);
           m_last_rpm = static_cast<IMC::Rpm*>(msg->clone());
         }
-        //! Allocate desired control torques on the fins
+        //! Allocate desired control torques on the fins将期望控制力矩分配至各舵翼
         //! @param[in] k desired control torque in roll
         //! @param[in] m desired control torque in pitch
         //! @param[in] n desired control torque in yaw
@@ -399,8 +399,8 @@ namespace Control
         allocate(float k, float m, float n)
         {
           float ang;
-          float roll_margin_vfins;
-          float roll_margin_hfins;
+          float roll_margin_vfins;//垂直舵（v-fins）横滚力矩余量
+          float roll_margin_hfins;//水平舵（hfins）横滚力矩裕度
           double rpm_m = m_args.rpm_minimum ; 
           double m_s = m_args.ms_minimum;
           double rpm = rpm_m/1000, m_s_m = m_s;

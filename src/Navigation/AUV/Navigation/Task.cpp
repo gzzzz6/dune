@@ -39,51 +39,39 @@ using DUNE_NAMESPACES;
 namespace Navigation
 {
   namespace AUV
-  {
-    //! Second Generation Navigation
+  {  //! Second Generation Navigation
     namespace Navigation
-    {
-      //! Navigation states.
+    {  //! Navigation states.
       enum StateIndexes
-      {
-        //! Vehicle north (m).北向位置 (m)
-        STATE_X = 0,
-        //! Vehicle east (m).东向位置 (m)
-        STATE_Y = 1,
-        //! Heading Angle (rad).船头朝哪，艏向（psi）以正北为 0，顺时针增大
-        STATE_PSI = 2,
-        //! Heading Rate (rad/s)转头多快
-        STATE_R = 3,
-        //! Ground Velocity x (m/s).相对海底/大地，沿船头方向往前的速度
-        STATE_U = 4,
-        //! Ground Velocity y (m/s).相对大地，垂直于船头方向的侧向速度
-        STATE_V = 5,
-        //! Heading Rate Bias (rad/s).角速度零偏
-        STATE_R_BIAS = 6,
-        //! Heading Angle Bias (rad).艏向零偏
-        STATE_PSI_BIAS = 7,
-        //! Revolutions to speed factor.螺旋桨每转一圈，大约能推进多少米
-        STATE_K = 8,
-        //! Number of States.
+      {  //! Vehicle north (m).北向位置 (m)
+        STATE_X = 0,  //! Vehicle east (m).东向位置 (m)
+        STATE_Y = 1,  //! Heading Angle (rad).船头朝哪，艏向（psi）以正北为 0，顺时针增大
+        STATE_PSI = 2,  //! Heading Rate (rad/s)转头多快
+        STATE_R = 3,  //! Ground Velocity x (m/s).相对海底/大地，沿船头方向往前的速度
+        STATE_U = 4,  //! Ground Velocity y (m/s).相对大地，垂直于船头方向的侧向速度
+        STATE_V = 5,  //! Heading Rate Bias (rad/s).角速度零偏
+        STATE_R_BIAS = 6,  //! Heading Angle Bias (rad).艏向零偏
+        STATE_PSI_BIAS = 7,  //! Revolutions to speed factor.螺旋桨每转一圈，大约能推进多少米
+        STATE_K = 8,  //! Number of States.
         NUM_STATE = 9
       };
 
       //! Navigation Output states.
+      //! EKF 观测向量 z 的分量索引。
+      //!
+      //! 【关键概念】EKF 有两套索引，别混：
+      //!   STATE_*  = 状态向量 x 的分量（我要估计的东西，9 个）
+      //!   OUT_*    = 观测向量 z 的分量（传感器测到的东西，6 个）
+      //! 一份观测可以同时修正多个状态分量（见 resetKalman 里 OUT_PSI
+      //! 同时修正 STATE_PSI 和 STATE_PSI_BIAS）。
       enum OutputIndexes
-      {
-        //! DVL Forward Speed (m/s).
-        OUT_U = 0,
-        //! DVL Transversal Speed (m/s).
-        OUT_V = 1,
-        //! Heading Angle (rad).
-        OUT_PSI = 2,
-        //! Heading Rate (rad/s).
-        OUT_R = 3,
-        //! GPS x (m).
-        OUT_GPS_X = 4,
-        //! GPS y (m).
-        OUT_GPS_Y = 5,
-        //! Number of Outputs (without LBL).
+      {  //! DVL Forward Speed (m/s).
+        OUT_U = 0,  //! DVL Transversal Speed (m/s).
+        OUT_V = 1,  //! Heading Angle (rad).
+        OUT_PSI = 2,  //! Heading Rate (rad/s).
+        OUT_R = 3,  //! GPS x (m).
+        OUT_GPS_X = 4,  //! GPS y (m).
+        OUT_GPS_Y = 5,  //! Number of Outputs (without LBL).
         NUM_OUT = 6
       };
 
@@ -137,55 +125,33 @@ namespace Navigation
 
       //! %Task arguments.任务参数
       struct Arguments
-      {
-        //! Position process noise when tactical grade IMU is enabled.
-        float pos_noise;
-        //! LBL measurement noise when tactical grade IMU enabled.
-        float lbl_noise;
-        //! GPS measurement noise covariance values.
-        std::vector<double> gps_noise;
-        //! USBL measurement noise covariance value.
-        double usbl_noise;
-        //! IMU entity label.
-        std::string elabel_imu;
-        //! Number of samples to average forward speed.
-        unsigned navg_speed;
-        //! Revolutions to speed factor.
-        float rpm_ini;
-        //! Maximum revolutions to speed variation.
-        float rpm_max;
-        //! Heading bias uncertainty alignment threshold.
-        double alignment_index;
-        //! Heading alignment sensor diff threshold
-        double alignment_diff;
-        //! Diff threshold - buffer of values for threshold validation
-        double heading_buffer_value;
-        //! Abort if navigation exceeds maximum uncertainty.
-        bool abort;
-        //! Activate RPM to m/s estimation
-        bool rpm_estimation;
-        //!  Activate RPM to m/s % limit on estimation
-        bool speed_relation_Limit;
-        //!  Value RPM to m/s limit on estimation
-        double speed_relation_limit_value;
-        //!  Distance of Depth sensor to the veicle pitch rotation axis
+      {  //! Position process noise when tactical grade IMU is enabled.
+        float pos_noise;  //! LBL measurement noise when tactical grade IMU enabled.
+        float lbl_noise;  //! GPS measurement noise covariance values.
+        std::vector<double> gps_noise;  //! USBL measurement noise covariance value.
+        double usbl_noise;  //! IMU entity label.
+        std::string elabel_imu;  //! Number of samples to average forward speed.
+        unsigned navg_speed;  //! Revolutions to speed factor.
+        float rpm_ini;  //! Maximum revolutions to speed variation.
+        float rpm_max;  //! Heading bias uncertainty alignment threshold.
+        double alignment_index;  //! Heading alignment sensor diff threshold
+        double alignment_diff;  //! Diff threshold - buffer of values for threshold validation
+        double heading_buffer_value;  //! Abort if navigation exceeds maximum uncertainty.
+        bool abort;  //! Activate RPM to m/s estimation
+        bool rpm_estimation;  //!  Activate RPM to m/s % limit on estimation
+        bool speed_relation_Limit;  //!  Value RPM to m/s limit on estimation
+        double speed_relation_limit_value;  //!  Distance of Depth sensor to the veicle pitch rotation axis
         float distance_depth_sensor;
 
       };
 
       struct Task: public DUNE::Navigation::BasicNavigation
-      {
-        //! Periodic GPS fix reading check.周期性GPS定位数据读取检查
-        bool m_gps_reading;
-        //! USBL fix reading check.USBL定位数据读取检查
-        bool m_usbl_reading;
-        //! Moving average for vehicle forward speed.载体前向航速的移动平均计算器
-        MovingAverage<double>* m_avg_speed;
-        //! Task arguments.任务参数
-        Arguments m_args;
-        //! Heading alignment buffer航向对准缓存计数
-        int m_heading_buffer;
-        //! Pointer to speed model for speed conversions用于航速换算的速度模型指针
+      {  //! Periodic GPS fix reading check.周期性GPS定位数据读取检查
+        bool m_gps_reading;  //! USBL fix reading check.USBL定位数据读取检查
+        bool m_usbl_reading;  //! Moving average for vehicle forward speed.载体前向航速的移动平均计算器
+        MovingAverage<double>* m_avg_speed;  //! Task arguments.任务参数
+        Arguments m_args;  //! Heading alignment buffer航向对准缓存计数
+        int m_heading_buffer;  //! Pointer to speed model for speed conversions用于航速换算的速度模型指针
         const Plans::SpeedModel* m_speed_model;
 
         Task(const std::string& name, Tasks::Context& ctx):
@@ -193,14 +159,12 @@ namespace Navigation
           m_avg_speed(nullptr),
           m_heading_buffer(0),
           m_speed_model(nullptr)
-        {
-          // Declare configuration parameters.
+        {  // Declare configuration parameters.
           // 有 IMU 时的位置过程噪声：位置模型误差（越小越信推算）
           param("Position Noise Covariance with IMU", m_args.pos_noise)
           .defaultValue("0.0")
           .minimumValue("0.0")
-          .description("Position process noise covariance value when IMU is available");
-          // 有 IMU 时的 LBL 量测噪声：水声基线定位可信度（越大越少信 LBL）
+          .description("Position process noise covariance value when IMU is available");  // 有 IMU 时的 LBL 量测噪声：水声基线定位可信度（越大越少信 LBL）
           param("LBL Noise Covariance with IMU", m_args.lbl_noise)
           .defaultValue("0.1")
           .minimumValue("0.0")
@@ -344,8 +308,7 @@ namespace Navigation
             m_kal.setMeasurementNoise(NUM_OUT + i, m_measure_noise[MN_LBL]);
 
           if (m_dead_reckoning)
-          {
-            // Position process noise covariance value if IMU is available.
+          {  // Position process noise covariance value if IMU is available.
             m_kal.setProcessNoise(STATE_X, m_args.pos_noise);
             m_kal.setProcessNoise(STATE_Y, m_args.pos_noise);
             m_kal.setProcessNoise(STATE_PSI_BIAS, m_process_noise[PN_PSI_BIAS]);
@@ -354,24 +317,21 @@ namespace Navigation
             for (unsigned i = 0; i < m_ranging.getSize(); i++)
               m_kal.setMeasurementNoise(NUM_OUT + i, m_args.lbl_noise);
           }
-        }
-        //资源初始化回调函数
+        }  //资源初始化回调函数
         void
         onResourceInitialization(void) override
         {
           BasicNavigation::onResourceInitialization();
           m_avg_speed = new MovingAverage<double>(m_args.navg_speed);
           startSpeedModel(&m_ctx.config);
-        }
-        //资源释放回调函数
+        }  //资源释放回调函数
         void
         onResourceRelease(void) override
         {
           BasicNavigation::onResourceRelease();
           Memory::clear(m_avg_speed);
           Memory::clear(m_speed_model);
-        }
-        //实体解析回调函数
+        }  //实体解析回调函数
         void
         onEntityResolution(void) override
         {
@@ -384,8 +344,7 @@ namespace Navigation
           {
             m_imu_eid = std::numeric_limits<unsigned>::max();
           }
-        }
-        //上报实体状态回调函数
+        }  //上报实体状态回调函数
         void
         onReportEntityState(void)
         {
@@ -398,8 +357,7 @@ namespace Navigation
             as.state = IMC::AlignmentState::AS_NOT_SUPPORTED;
 
           dispatch(as);
-        }
-        //它在 IMU 激活/关闭时，切换航位推算模式，并改写航向零偏、位置/零偏过程噪声和 LBL 量测噪声等 EKF 配置
+        }  //它在 IMU 激活/关闭时，切换航位推算模式，并改写航向零偏、位置/零偏过程噪声和 LBL 量测噪声等 EKF 配置
         void
         consume(const IMC::EntityActivationState* msg)
         {
@@ -411,8 +369,7 @@ namespace Navigation
 
           if ((msg->state == IMC::EntityActivationState::EAS_ACTIVE ||
                msg->state == IMC::EntityActivationState::EAS_ACT_DONE))
-          {
-            // IMU already activated.
+          {  // IMU already activated.
             if (m_dead_reckoning)
               return;
 
@@ -433,7 +390,7 @@ namespace Navigation
             for (unsigned i = 0; i < m_ranging.getSize(); i++)
               m_kal.setMeasurementNoise(NUM_OUT + i, m_args.lbl_noise);
           }
-          else
+          else  // DVL 或 GPS 至少一个正常：用速度 u,v 推算位置
           {
             if (!m_dead_reckoning)
               return;
@@ -456,8 +413,7 @@ namespace Navigation
             for (unsigned i = 0; i < m_ranging.getSize(); i++)
               m_kal.setMeasurementNoise(NUM_OUT + i, m_measure_noise[MN_LBL]);
           }
-        }
-        //EKF 启动时的初始化：设定状态初值和协方差 P 的对角初值
+        }  //EKF 启动时的初始化：设定状态初值和协方差 P 的对角初值
         bool
         setup(void)
         {
@@ -500,8 +456,7 @@ namespace Navigation
         {
           if (m_kal.resize(NUM_OUT + m_ranging.getSize()))
             Task::onUpdateParameters();
-        }
-        // 按 GPS 精度实时切换 EKF 对 GPS 的信任程度
+        }  // 按 GPS 精度实时切换 EKF 对 GPS 的信任程度
         void
         updateKalmanGpsParameters(double hacc)
         {
@@ -525,8 +480,11 @@ namespace Navigation
             m_kal.setMeasurementNoise(OUT_GPS_X, m_args.gps_noise[GPS_PURE_IX]);
             m_kal.setMeasurementNoise(OUT_GPS_Y, m_args.gps_noise[GPS_PURE_IX]);
           }
-        }
-        //把 GPS 或者 USBL 的定位结果包装成**观测向量 z**，送入 EKF 做**观测更新**；
+        }  // 把 GPS 定位结果装进观测向量 z 的 x/y 分量。
+        // 【注意】这里只填"观测值"，不直接改状态——状态更新由 m_kal.update() 完成。
+        // 配套的两步在 step() 里：
+        //   setOutput(OUT_GPS_X, x)                 ← 这里：观测值
+        //   setInnovation(OUT_GPS_X, 观测 - 状态)   ← step()：新息(innovation)
         void
         runKalmanGPS(double x, double y)
         {
@@ -539,8 +497,7 @@ namespace Navigation
 
         void
         runKalmanUSBL(double x, double y)
-        {
-          // if there's gps, ignore usbl.
+        {  // if there's gps, ignore usbl.
           if (!m_time_without_gps.overflow())
             return;
 
@@ -559,14 +516,12 @@ namespace Navigation
         {
           *u = OUT_U;
           *v = OUT_V;
-        }
-        //告诉框架：标准量测输出一共有几路
+        }  //告诉框架：标准量测输出一共有几路
         unsigned
         getNumberOutputs(void)
         {
           return NUM_OUT;
-        }
-        //AUV 导航每拍的 EKF 主循环
+        }  //AUV 导航每拍的 EKF 主循环
         void
         task(void)
         {
@@ -574,8 +529,7 @@ namespace Navigation
             return;
 
           // Compute time delta.
-          double tstep = getTimeStep();
-          // Check if we have a valid time delta.
+          double tstep = getTimeStep();  // Check if we have a valid time delta.
           if (tstep < 0)
             return;
 
@@ -590,7 +544,7 @@ namespace Navigation
           m_kal.setStateTransition((a * tstep).expmts());
 
           // Modify covariance state transition matrix.
-          double yaw = m_kal.getState(STATE_PSI);
+          double yaw = m_kal.getState(STATE_PSI);  // 当前艏向角，用于构造旋转矩阵
 
           a(STATE_X, STATE_PSI) = (- x(STATE_U) * std::sin(yaw)
                                    - x(STATE_V) * std::cos(yaw));
@@ -608,7 +562,7 @@ namespace Navigation
 
           if (m_dead_reckoning)
             m_heading += tstep * hrate;
-          else
+          else  // DVL 或 GPS 至少一个正常：用速度 u,v 推算位置
             m_heading += Angles::minSignedAngle(m_heading, Angles::normalizeRadian(getEuler(AXIS_Z)));
 
           // Update heading in Kalman filter.
@@ -620,15 +574,14 @@ namespace Navigation
 
           // GPS innovation matrix.
           if (m_gps_reading || m_usbl_reading)
-          {
-            // Reset GPS counter.
+          {  // Reset GPS counter.
             if (m_gps_reading)
               m_time_without_gps.reset();
 
             m_kal.setInnovation(OUT_GPS_X, m_kal.getOutput(OUT_GPS_X) - m_kal.getState(STATE_X));
             m_kal.setInnovation(OUT_GPS_Y, m_kal.getOutput(OUT_GPS_Y) - m_kal.getState(STATE_Y));
           }
-          else
+          else  // DVL 或 GPS 至少一个正常：用速度 u,v 推算位置
           {
             m_kal.setObservation(OUT_GPS_X, STATE_X, 0.0);
             m_kal.setObservation(OUT_GPS_Y, STATE_Y, 0.0);
@@ -641,7 +594,7 @@ namespace Navigation
             m_kal.setInnovation(OUT_U, m_kal.getOutput(OUT_U) - m_kal.getState(STATE_U));
             m_kal.setInnovation(OUT_V, m_kal.getOutput(OUT_V) - m_kal.getState(STATE_V));
           }
-          else if (m_time_without_gps.overflow() && m_time_without_dvl.overflow())
+          else if (m_time_without_gps.overflow() && m_time_without_dvl.overflow())  // DVL 或 GPS 至少一个正常：用速度 u,v 推算位置
           {
             double u = 0.0;
             double speed_m  = getRpmToMs(m_rpm);
@@ -655,22 +608,21 @@ namespace Navigation
                   u = speed_m;
               }
             }
-            else
+            else  // DVL 或 GPS 至少一个正常：用速度 u,v 推算位置
             {
               u = speed_m;
             }
             m_kal.setInnovation(OUT_U, u - m_kal.getState(STATE_U));
             m_kal.setInnovation(OUT_V, 0 - m_kal.getState(STATE_V));
           }
-          else
-          {
-            // Use GPS speed over ground.
+          else  // DVL 或 GPS 至少一个正常：用速度 u,v 推算位置
+          {  // Use GPS speed over ground.
             if (m_gps_reading && m_time_without_dvl.overflow())
             {
               m_kal.setInnovation(OUT_U, m_gps_sog - m_kal.getState(STATE_U));
               m_kal.setInnovation(OUT_V, 0 - m_kal.getState(STATE_V));
             }
-            else
+            else  // DVL 或 GPS 至少一个正常：用速度 u,v 推算位置
             {
               m_kal.setObservation(OUT_U, STATE_U, 0.0);
               m_kal.setObservation(OUT_V, STATE_V, 0.0);
@@ -713,7 +665,7 @@ namespace Navigation
               m_aligned = true;
               m_heading_buffer = 0;
             }
-            else
+            else  // DVL 或 GPS 至少一个正常：用速度 u,v 推算位置
             {
               if (m_aligned)
               {
@@ -783,46 +735,89 @@ namespace Navigation
         void
         setTransition(Matrix& A)
         {
-          A.fill(0.0);
+          A.fill(0.0);  // 清空矩阵：所有元素置零，准备重新填充
 
-          double phi = Angles::normalizeRadian(getEuler(AXIS_X));
-          double theta = Angles::normalizeRadian(getEuler(AXIS_Y));
+          double phi = Angles::normalizeRadian(getEuler(AXIS_X));  // 横滚角（roll），用于机体系→导航系的坐标变换
+          double theta = Angles::normalizeRadian(getEuler(AXIS_Y));  // 纵倾角（pitch），用于机体系→导航系的坐标变换
 
-          A(STATE_PSI, STATE_R) = 1.0;
+          A(STATE_PSI, STATE_R) = 1.0;  // 艏向角 ψ ← 角速度 r：ψ_new = ψ + r·dt，这里填的是 r 的系数 1
 
-          double yaw = m_kal.getState(STATE_PSI);
+          double yaw = m_kal.getState(STATE_PSI);  // 当前艏向角，用于构造旋转矩阵
 
-          if (m_time_without_dvl.overflow() && m_time_without_gps.overflow())
+          if (m_time_without_dvl.overflow() && m_time_without_gps.overflow())  // DVL 和 GPS 都超时：没有速度观测，只能用 RPM 因子 K 推算位置
           {
-            A(STATE_X, STATE_K) = m_rpm * std::cos(yaw) * std::cos(theta);
-            A(STATE_Y, STATE_K) = m_rpm * std::sin(yaw) * std::cos(theta);
+            A(STATE_X, STATE_K) = m_rpm * std::cos(yaw) * std::cos(theta);  // 位置x ← K：x_new = x + K·rpm·cos(ψ)·cos(θ)·dt
+            A(STATE_Y, STATE_K) = m_rpm * std::sin(yaw) * std::cos(theta);  // 位置y ← K：y_new = y + K·rpm·sin(ψ)·cos(θ)·dt
           }
-          else
+          else  // DVL 或 GPS 至少一个正常：用速度 u,v 推算位置
           {
-            A(STATE_X, STATE_U) = std::cos(yaw) * std::cos(theta);
-            A(STATE_X, STATE_V) = (std::cos(yaw) * std::sin(theta) * std::sin(phi)
+            A(STATE_X, STATE_U) = std::cos(yaw) * std::cos(theta);  // 位置x ← u：x_new = x + u·cos(ψ)·cos(θ)·dt
+            A(STATE_X, STATE_V) = (std::cos(yaw) * std::sin(theta) * std::sin(phi)  // 位置x ← v：含姿态耦合项（横滚+纵倾对横向速度的影响）
                                    - std::sin(yaw) * std::cos(phi));
-            A(STATE_Y, STATE_U) = std::sin(yaw) * std::cos(theta);
-            A(STATE_Y, STATE_V) = (std::sin(yaw) * std::sin(theta) * std::sin(phi)
+            A(STATE_Y, STATE_U) = std::sin(yaw) * std::cos(theta);  // 位置y ← u：y_new = y + u·sin(ψ)·cos(θ)·dt
+            A(STATE_Y, STATE_V) = (std::sin(yaw) * std::sin(theta) * std::sin(phi)  // 位置y ← v：含姿态耦合项（横滚+纵倾对横向速度的影响）
                                    + std::cos(yaw) * std::cos(phi));
           }
         }
 
         // Reinitialize Extended Kalman Filter output matrix function.
+        //
+        // 【这就是"每种传感器修正哪个分量"的答案】
+        // setObservation(观测分量, 状态分量, 系数)  —— 观测矩阵 H 的一行。
+        // 系数 1.0 = 该传感器直接修正这个状态量；0.0 = 本周期不修正。
+        //
+        //   传感器      观测量   →  修正的状态分量
+        //   ─────────────────────────────────────────────
+        //   DVL/WaterVel 速度 u →  STATE_U  (纵向速度)
+        //   DVL/WaterVel 速度 v →  STATE_V  (横向速度)
+        //   AHRS/Euler   艏向 ψ →  STATE_PSI      (艏向)
+        //                          STATE_PSI_BIAS (艏向零偏) ← 关键
+        //   IMU/AHRS     角速度 r → STATE_R       (转头角速度)
+        //                          STATE_R_BIAS   (角速度零偏)
+        //   GPS/USBL/LBL x,y   →  STATE_X / STATE_Y (北向/东向位置)
+        //
+        // 【两个要点】
+        // 1. OUT_R 对 STATE_R_BIAS 的系数是 0.0 —— 角速度零偏不由角速度观测
+        //    直接修正，而是靠 STATE_R 估计出来后减去零偏得到残差再反推
+        //    （见 step() 里 setInnovation(OUT_R, 观测 - (STATE_R + STATE_R_BIAS))）。
+        // 2. 深度不在这个表里。深度不进 EKF 的 x 向量，而是直接算进 EstimatedState
+        //    的 depth 字段（见 logData()），因为深度变化慢、无需滤波估计。
+        //
+        // 缺观测时怎么处理：把对应 H 系数置 0（setObservation(..., 0.0)），
+        // 该传感器本周期就完全不参与更新，而不是喂一个假值。
         void
         resetKalman(void)
         {
           m_kal.resetOutputs();
+
+          // —— 速度观测（DVL / Water Velocity）——
           m_kal.setObservation(OUT_U, STATE_U, 1.0);
           m_kal.setObservation(OUT_V, STATE_V, 1.0);
+
+          // —— 艏向观测（AHRS/EulerAngles）——
+          // 同时修正艏向本身和艏向零偏：磁罗盘长期有偏，把偏差也估出来
           m_kal.setObservation(OUT_PSI, STATE_PSI, 1.0);
           m_kal.setObservation(OUT_PSI, STATE_PSI_BIAS, 1.0);
+
+          // —— 角速度观测（IMU/AngularVelocity）——
+          // 注意 STATE_R_BIAS 系数是 0.0：零偏走间接修正路径
           m_kal.setObservation(OUT_R, STATE_R, 1.0);
           m_kal.setObservation(OUT_R, STATE_R_BIAS, 0.0);
+
+          // —— 位置观测（GPS / USBL / LBL）——
           m_kal.setObservation(OUT_GPS_X, STATE_X, 1.0);
           m_kal.setObservation(OUT_GPS_Y, STATE_Y, 1.0);
         }
 
+        // 把 EKF 状态打包成对外发布的 EstimatedState。
+        //
+        // 【深度为什么不在 EKF 状态向量里】
+        // m_kal 的 x 向量只有 9 个 STATE_*，没有深度。但 logData 里直接写了：
+        //   m_estate.depth = getDepth() - m_estate.theta * distance_depth_sensor;
+        // 原因是深度变化极缓（船上下沉是慢过程），不需要 Kalman 滤波去"估计"，
+        // 直接用滤波后的深度测量值 + 一个俯仰角补偿即可。
+        // distance_depth_sensor 是"深度计安装位置到船体原点的距离"——
+        // 深度计装在船头和重心不在同一处时，船一俯仰两者读数就差一个 sinθ。
         void
         logData(void)
         {

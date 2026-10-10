@@ -508,21 +508,24 @@ namespace Control
         void
         onEstimatedState(const double timestep, const IMC::EstimatedState* msg)
         {
-          // Desired actuation torque vector.
+          // Desired actuation torque vector.期望执行机构扭矩向量
           IMC::DesiredControl torques;
 
+          //误差不在姿态空间，三个数各自写进k/m/n
+          //直接拿横滚 / 俯仰 / 偏航的角度误差，分别输出三轴扭矩指令，三轴互不耦合
           if (!m_args.error_attitude)
           {
-            torques.m = depthControl(timestep, msg);
+            torques.m = depthControl(timestep, msg);//深度相关
 
             if (m_args.roll_control_enabled)
-              torques.k = rollControl(timestep, msg);
+              torques.k = rollControl(timestep, msg);//横滚（roll）控制量
             else
               torques.k = 0;
 
-            torques.n = headingControl(timestep, msg);
+            torques.n = headingControl(timestep, msg);//艏向（yaw/heading）
           }
-          else
+          else//误差在姿态空间（耦合姿态动力学）
+          //误差不是直接用欧拉角，而是在姿态几何空间（旋转空间）构造姿态偏差，再映射到载体本体轴的扭矩 k/m/n；会自动处理 φ、θ 耦合
           {
             double elements_J2[9] = {1, sin(msg->phi)*tan(msg->theta), cos(msg->phi)*tan(msg->theta),
                                      0, cos(msg->phi), -sin(msg->phi),
@@ -550,9 +553,10 @@ namespace Control
         }
 
         //! classical inner pitch/outter depth nested controller.
+        //! 外环深度/高度 → 内环俯仰 的嵌套控制。
         //! @param[in] timestep time interval to use in pid controller.
         //! @param[in] msg pointer to EstimatedState message.
-        //! @return desired torque about y axis.
+        //! @return desired torque about y axis（绕 y 轴/俯仰通道的期望控制量）。
         float
         depthControl(const double timestep, const IMC::EstimatedState* msg)
         {
@@ -561,8 +565,12 @@ namespace Control
           bool use_offset = m_args.use_depth_offset;
           bool surface = false;
 
+          // ============================================================
+          // [块1] 垂直模式：算深度/高度误差 z_error，或直接给俯仰目标
+          // ============================================================
           if (getVerticalMode() == VERTICAL_MODE_PITCH)
           {
+            // 纯俯仰模式：外环不看深度差，直接把垂直参考当目标俯仰
             cmd = getVerticalRef();
           }
           else
@@ -570,9 +578,11 @@ namespace Control
             switch (getVerticalMode())
             {
               case VERTICAL_MODE_DEPTH:
+                // 定深：z_error = 目标深度 - 当前深度
                 z_error = getVerticalRef() - msg->depth;
                 if (getVerticalRef() < m_args.depth_threshold)
                 {
+                  // 目标很浅：可选 force_pitch 出水面；浅水时可能不用 depth_offset
                   if (m_args.force_pitch && std::fabs(z_error) < m_args.depth_threshold)
                     surface = true;
 
@@ -581,6 +591,7 @@ namespace Control
                 }
                 break;
               case VERTICAL_MODE_ALTITUDE:
+                // 定高/跟底：高度不可信时拉安全参考，否则用贴底目标深度
                 if (msg->alt < m_args.min_dvl_alt && msg->depth < m_args.min_dvl_depth)
                 {
                   m_vref->clear();
@@ -595,6 +606,7 @@ namespace Control
 
                   if (m_ca != NULL)
                   {
+                    // 可选粗高度滤波后再与当前深度作差
                     z_error = m_ca->update(timestep, msg->depth, bfd) - msg->depth;
 
                     if (m_args.log_parcels)
@@ -615,11 +627,17 @@ namespace Control
                 return 0.0;
             }
 
+            // 可选固定深度偏置
             if (use_offset)
               z_error += m_args.depth_offset;
 
+            // ============================================================
+            // [块2] 外环：深度/高度误差 → 目标俯仰 cmd（降频执行）
+            // ============================================================
+
             // Depth-to-pitch PID sampling rate relation
-            m_sampling_rate_relation++;
+            // 深度环比姿态环慢：每 N 拍才更新一次
+            m_sampling_rate_relation++;//进过多少次depthControl，用来做外环降频。实际控制里当“每 N 拍算一次”
 
             if (m_sampling_rate_relation >= m_args.sampling_rate_relation)
             {
@@ -627,10 +645,10 @@ namespace Control
 
               if (!surface)
               {
-                // extra pitch.
+                // extra pitch：误差大时临时放宽俯仰限幅（只改 PID 输出限幅）
                 if (m_extra_pitch)
                 {
-                  // remove extra pitch.
+                  // 已 extra：误差缩小（含滞回）或艏向太快则退出
                   if (std::fabs(z_error) < m_args.zref_extra - c_depth_hyst
                       || std::fabs(m_hrate_ref.value)
                          > Angles::radians(c_max_hrate))
@@ -644,7 +662,7 @@ namespace Control
                 }
                 else
                 {
-                  // add extra pitch.
+                  // 未 extra：误差大且配置允许、艏向不快时进入
                   if ((std::fabs(z_error) > m_args.zref_extra)
                       && (m_args.extra_pitch > 0.0)
                       && std::fabs(m_hrate_ref.value)
@@ -657,6 +675,7 @@ namespace Control
                   }
                 }
 
+                // 由体速度与姿态合成垂向速度，作 PID 微分反馈
                 const float z_rate
                 = -sin(msg->theta) * msg->u
                   + cos(msg->theta)
@@ -664,6 +683,7 @@ namespace Control
 
                 // Positive depth rate implies negative pitch, so the PID output
                 // is inverted.
+                // 定深（或不走高度环）：外环 PID
                 if (getVerticalMode() == VERTICAL_MODE_DEPTH
                     || !m_args.altitude_control)
                 {
@@ -671,6 +691,7 @@ namespace Control
                 }
                 else
                 {
+                  // 定高：高度参考微分 - 当前垂向速度 作微分项
                   const float ref_rate = m_vref_d.update(m_vref->get());
                   cmd
                   = -m_pid[LP_ALT].step(timestep, z_error, ref_rate - z_rate);
@@ -678,27 +699,34 @@ namespace Control
               }
               else
               {
+                // surface：不用深度 PID，固定出水俯仰
                 cmd = m_args.surface_pitch;
               }
 
               // Log the desired pitch
+              // 保存并广播期望俯仰角
               m_pitch_ref.value = cmd;
               dispatch(m_pitch_ref);
             }
             else
             {
+              // 本拍不更新外环：沿用并重发上次期望俯仰
               cmd = m_pitch_ref.value;
               dispatch(m_pitch_ref);
             }
           }
 
-          // Now, track pitch
+          // ============================================================
+          // [块3] 内环：跟踪俯仰角 cmd → 返回控制量
+          // ============================================================
           float pitch_err = (cmd - msg->theta);
 
           // With attitude compensation we use a different approach
+          // 姿态空间补偿分支：只交出俯仰角误差，由外层 J2 处理
           if (m_args.error_attitude)
             return pitch_err;
 
+          // 默认：俯仰角 + 俯仰角速率 PID
           const float ref_rate = m_pref_d.update(cmd);
           const float pitch_rate
           = msg->q * cos(msg->phi) - msg->r * sin(msg->phi);
@@ -711,28 +739,37 @@ namespace Control
         }
 
         //! Control the roll angle.
+        //! 控制横滚角：目标横滚 − 当前 φ，经 roll PID 得到绕 x 轴期望力矩 k。
         //! @param[in] timestep time interval to use in pid controller.
         //! @param[in] msg pointer to EstimatedState message.
-        //! @return desired torque about x axis.
+        //! @return desired torque about x axis（写入 DesiredControl.k）。
         float
         rollControl(const double timestep, const IMC::EstimatedState* msg)
         {
+          // 目标横滚角（rad）。默认 0：尽量扶正。
           float ref = 0.0;
 
+          // 若配置了固定倾角，则不用 0，而用 offset_angle。
           if (m_args.rc.use_offset)
             ref = m_args.rc.offset_angle;
 
+          // 可选：随前向速度 u 调整 roll 环比例增益 Kp。
           if (m_args.rc.use_speed)
           {
+            // 参数表里 roll 的标称 Kp。
             float initial_gain = m_args.gains[LP_ROLL][0];
+            // 先假定不改增益。
             float new_gain = initial_gain;
 
+            // 速度超过上限 → 直接用 speed_gain。
             if (msg->u > m_args.rc.speed_bounds[1])
             {
               new_gain = m_args.rc.speed_gain;
             }
+            // 速度落在 [下限, 上限] → 在两个增益之间线性插值。
             else if (msg->u > m_args.rc.speed_bounds[0])
             {
+              // 插值端点：y=initial_gain..speed_gain，x=speed_bounds[0]..[1]，当前 u。
               Math::LinIntParam<float> lip(initial_gain, m_args.rc.speed_gain,
                                            m_args.rc.speed_bounds[0], m_args.rc.speed_bounds[1],
                                            msg->u);
@@ -741,13 +778,20 @@ namespace Control
               new_gain = sc_gain;
             }
 
+            // 把算好的 Kp 写进 PID。
             m_pid[LP_ROLL].setProportionalGain(new_gain);
+            // 记入 parcel，便于日志看当前增益。
             m_parcels[LP_ROLL].a = new_gain;
           }
 
+          // 本拍 roll 控制输出（期望力矩 k）。
           float cmd;
 
+          // PID：误差 = 目标横滚 ref − 当前 φ（msg->phi）
+          // 微分项：横滚角速度近似 = −(p + tanθ·(sinφ·q + cosφ·r))
+          //   p,q,r 为体轴角速度，用姿态折合到“φ 怎么变”。
           cmd = m_pid[LP_ROLL].step(timestep, ref - msg->phi, -(msg->p + tan(msg->theta) * (sin(msg->phi) * msg->q + cos(msg->phi) * msg->r)));
+          // 返回给 onEstimatedState，写入 torques.k。
           return cmd;
         }
 

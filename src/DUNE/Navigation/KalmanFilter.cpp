@@ -100,7 +100,7 @@ namespace DUNE
       m_x = x0;
       m_p = P0;
     }
-
+    //带控制输入版本
     void
     KalmanFilter::normalize(void)
     {
@@ -108,45 +108,45 @@ namespace DUNE
     }
 
     void
-    KalmanFilter::predict(Math::Matrix& b, Math::Matrix& u)
+    KalmanFilter::predict(Math::Matrix& b, Math::Matrix& u)//b=控制矩阵，u=控制输入（如 RPM）
     {
       if (u.rows() != b.columns() || u.columns() != 1)
         throw std::runtime_error(DTR("invalid dimensions"));
 
-      m_x = m_ax * m_x + b * u;
-      m_p = m_ap * m_p * transpose(m_ap) + m_q;
+      m_x = m_ax * m_x + b * u;//状态预测：x = F·x + B·u
+      m_p = m_ap * m_p * transpose(m_ap) + m_q;//协方差预测：P = F·P·F^T + Q
     }
-
+    //无控制输入
     void
     KalmanFilter::predict(void)
     {
-      m_x = m_ax * m_x;
-      m_p = m_ap * m_p * transpose(m_ap) + m_q;
+      m_x = m_ax * m_x;//状态预测：x = F·x
+      m_p = m_ap * m_p * transpose(m_ap) + m_q;//协方差预测：P = F·P·F^T + Q
     }
 
     int
     KalmanFilter::update(float threshold)
     {
-      if (m_c.rows() != m_innov.rows())
+      if (m_c.rows() != m_innov.rows())  // 维度检查：观测矩阵行数 == 新息向量行数
         throw std::runtime_error(DTR("invalid dimensions"));
 
-      if (m_c.columns() != m_x.rows())
+      if (m_c.columns() != m_x.rows())  // 维度检查：观测矩阵列数 == 状态向量行数
         throw std::runtime_error(DTR("invalid dimensions"));
 
-      if (m_innov.columns() != 1)
+      if (m_innov.columns() != 1)  // 维度检查：新息是列向量
         throw std::runtime_error(DTR("invalid dimensions"));
 
-      if (m_r.rows() != m_r.columns() || m_r.rows() != m_innov.rows())
+      if (m_r.rows() != m_r.columns() || m_r.rows() != m_innov.rows())  // 维度检查：测量噪声是方阵且匹配新息维度
         throw std::runtime_error(DTR("invalid dimensions"));
 
       // Measurement prediction covariance.
-      Math::Matrix S = (m_c * m_p * transpose(m_c)) + m_r;
+      Math::Matrix S = (m_c * m_p * transpose(m_c)) + m_r;  // S = H·P·H^T + R：测量预测协方差（预测观测的不确定性 + 测量噪声）
       Math::Matrix S_1;
 
       // Inverse of the measurement prediction covariance.
       try
       {
-        S_1 = inverse(S);
+        S_1 = inverse(S);  // S 的逆矩阵，用于后续增益计算
       }
       catch (...)
       {
@@ -157,20 +157,20 @@ namespace DUNE
       // Set threshold to 0 to accept everything.
       if (threshold != 0)
       {
-        double level = (transpose(m_innov) * S_1 * m_innov)(0);
+        double level = (transpose(m_innov) * S_1 * m_innov)(0);  // 马氏距离：新息^(-1)·S^(-1)·新息，衡量新息是否异常
 
-        if (level >= threshold)
+        if (level >= threshold)  // 超过阈值说明新息异常（可能是野值），拒绝本次更新
           return -1;
       }
 
       // Kalman Gain.
-      Math::Matrix K = m_p * transpose(m_c) * S_1;
+      Math::Matrix K = m_p * transpose(m_c) * S_1;  // 卡尔曼增益 K = P·H^T·S^(-1)：决定信测量多少
 
       // State update.
-      m_x = m_x + K * m_innov;
+      m_x = m_x + K * m_innov;  // 状态修正：x_new = x_pred + K·(实测 - 预测)
 
       // State Covariance update.
-      m_p = m_p - K * m_c * m_p;
+      m_p = m_p - K * m_c * m_p;  // 协方差修正：P_new = P - K·H·P（修正后不确定性降低）
 
       return 0;
     }
@@ -248,7 +248,7 @@ namespace DUNE
     }
 
     void
-    KalmanFilter::setObservation(short ln, short cl, double value)
+    KalmanFilter::setObservation(short ln, short cl, double value)//ln=行号（观测分量），cl=列号（状态分量），value=填入的系数
     {
       if (ln >= m_c.rows() || cl >= m_c.columns())
         throw std::runtime_error(DTR("invalid index"));
@@ -262,7 +262,7 @@ namespace DUNE
       if (ln >= m_q.rows() || cl >= m_q.columns())
         throw std::runtime_error(DTR("invalid index"));
 
-      m_q(ln, cl) = value;
+      m_q(ln, cl) = value;//往观测矩阵 H 的指定位置填值
     }
 
     void
